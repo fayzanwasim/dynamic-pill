@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="app_name">Dynamic Pill</string>
+    <string name="accessibility_description">Draws the pill overlay around the front camera cutout.</string>
+
+    <string name="setup_intro">Enable both services, then allow restricted settings and unrestricted battery use for this app.</string>
+    <string name="action_accessibility">1. Enable accessibility service</string>
+    <string name="action_notification_access">2. Enable notification access</string>
+    <string name="action_app_info">3. App info (restricted settings, battery)</string>
+    <string name="action_audio_permission">4. Allow audio access (real equalizer)</string>
+
+    <string name="section_preview">Preview</string>
+    <string name="action_preview_expanded">Preview expanded</string>
+    <string name="action_preview_compact">Preview compact</string>
+    <string name="action_preview_music">Preview music (equalizer)</string>
+    <string name="action_preview_timer">Preview timer</string>
+    <string name="preview_title">Dynamic Pill</string>
+    <string name="preview_text">Overlay is working.</string>
+    <string name="preview_compact_label">Hi</string>
+    <string name="preview_music_title">Song title</string>
+    <string name="preview_music_artist">Artist</string>
+    <string name="preview_timer_title">Timer</string>
+
+    <string name="section_layout">Position, size and animation (changes apply live)</string>
+    <string name="setting_value">%1$s: %2$s</string>
+    <string name="setting_offset_x">Horizontal offset (dp)</string>
+    <string name="setting_offset_y">Vertical offset (dp)</string>
+    <string name="setting_compact_side">Compact side width (dp)</string>
+    <string name="setting_padding">Compact vertical padding (dp)</string>
+    <string name="setting_idle_side">Idle side width (dp, 0 = fit decoration)</string>
+    <string name="setting_compact_radius">Compact corner radius (dp)</string>
+    <string name="setting_edge_padding">Icon / visualizer edge padding (dp)</string>
+    <string name="setting_expanded_width">Expanded width (dp)</string>
+    <string name="setting_corner_radius">Expanded corner radius (dp)</string>
+    <string name="setting_hold_seconds">Notification duration (seconds)</string>
+    <string name="setting_bounciness">Bounciness</string>
+    <string name="setting_animation_speed">Animation speed (% - lower is slower)</string>
+    <string name="setting_accent_color">Accent color</string>
+    <string-array name="accent_names">
+        <item>White</item>
+        <item>Green</item>
+        <item>Blue</item>
+        <item>Pink</item>
+        <item>Orange</item>
+        <item>Purple</item>
+    </string-array>
+
+    <string name="section_behavior">Behavior</string>
+    <string name="setting_idle_widget">Idle decoration</string>
+    <string-array name="idle_widget_names">
+        <item>None</item>
+        <item>Eyes</item>
+        <item>Clock</item>
+        <item>Date</item>
+        <item>Battery</item>
+        <item>Glow</item>
+        <item>Next alarm</item>
+    </string-array>
+    <string name="toggle_always_on">Keep the pill on when idle (expands sideways)</string>
+    <string name="toggle_ignore_persistent">Ignore persistent (ongoing) notifications</string>
+    <string name="toggle_only_important">Only important notifications (ignore lower priority)</string>
+    <string name="action_preview_message_over_music">Preview message over music</string>
+    <string name="preview_message_title">New message</string>
+    <string name="preview_message_text">Hey, are you free later?</string>
+    <string name="toggle_auto_expand_notifications">Expand notifications automatically</string>
+    <string name="toggle_auto_expand_calls">Expand incoming calls automatically</string>
+    <string name="toggle_show_on_lockscreen">Show on lock screen</string>
+    <string name="action_app_rules">Per-app rules</string>
+
+    <string name="section_backup">Backup</string>
+    <string name="action_export">Export settings</string>
+    <string name="action_import">Import settings</string>
+    <string name="action_reset">Reset to defaults</string>
+    <string name="backup_done">Done</string>
+    <string name="backup_failed">Could not read or write that file</string>
+
+    <string name="mode_default">Default</string>
+    <string name="mode_muted">Never show</string>
+    <string name="mode_auto_expand">Expand automatically</string>
+    <string name="mode_live">Show ongoing activity (progress)</string>
+    <string name="mode_hide_while_open">Hide pill while this app is open</string>
+    <string name="rule_summary_with_seconds">%1$s, %2$d s</string>
+    <string name="rule_duration_default">Duration: global default</string>
+    <string name="rule_duration_seconds">Duration: %1$d s</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+
+    <string name="charging_title">Charging</string>
+    <string name="charging_fast_title">Fast charging</string>
+    <string name="charging_watts">%1$d W</string>
+    <string name="charging_percent">%1$d%%</string>
+
+    <string name="event_volume">Volume</string>
+    <string name="event_ring_volume">Ring volume</string>
+    <string name="event_silent">Silent</string>
+    <string name="event_vibrate">Vibrate</string>
+    <string name="event_ring">Ring</string>
+    <string name="event_low_battery">Battery low</string>
+    <string name="event_bluetooth_device">Bluetooth device</string>
+    <string name="event_bluetooth_connected">Connected</string>
+    <string name="event_bluetooth_short">BT</string>
+
+    <string name="toggle_respect_dnd">Respect Do Not Disturb</string>
+    <string name="toggle_ignore_foreground_app">Ignore notifications from the app I\'m using</string>
+    <string name="toggle_haptics">Haptic tick when the pill expands</string>
+    <string name="toggle_event_volume">Show volume changes</string>
+    <string name="toggle_event_ringer">Show ring / vibrate / silent changes</string>
+    <string name="toggle_event_bluetooth">Show Bluetooth connections</string>
+    <string name="toggle_event_low_battery">Show low battery warning</string>
+
+    <string name="vip_label">VIP names or keywords (always shown and expanded, comma separated)</string>
+    <string name="vip_hint">e.g. Mom, urgent, flight</string>
+    <string name="action_bluetooth_permission">5. Allow Bluetooth device names</string>
+    <string name="action_event_log">Why didn\'t it show? (event log)</string>
+    <string name="action_clear_log">Clear log</string>
+    <string name="log_line">%1$s · %2$s · %3$s: %4$s</string>
+    <string name="log_empty">Nothing recorded yet. Decisions appear here as notifications arrive.</string>
+
+    <string name="section_profiles">Profiles (apply a set of settings)</string>
+    <string name="profile_home">Home: playful, always on</string>
+    <string name="profile_work">Work: quiet, important only</string>
+    <string name="profile_sleep">Sleep: minimal, hidden on lock screen</string>
+
+    <string name="section_automation">Automation (Tasker, Automate, adb)</string>
+    <!-- The double hyphens are adb command-line flags, not prose dashes. -->
+    <string name="automation_help" tools:ignore="TypographyDashes">Send a broadcast to com.personal.dynamicpill/.AutomationReceiver with action com.personal.dynamicpill.action.SHOW and extras: token, title, text, seconds, expand, timer_seconds, live, id. End a live one with action com.personal.dynamicpill.action.END and the same id.\n\nToken: %1$s\n\nExample:\nadb shell am broadcast -n com.personal.dynamicpill/.AutomationReceiver -a com.personal.dynamicpill.action.SHOW --es token %1$s --es title Hello --es text "From automation" --ei seconds 5</string>
+    <string name="action_copy_token">Copy token</string>
+    <string name="token_copied">Token copied</string>
+    <string name="tile_label">Pill always on</string>
+
+    <string name="health_ok">✓ %1$s</string>
+    <string name="health_missing">✗ %1$s</string>
+    <string name="health_accessibility">Accessibility service enabled</string>
+    <string name="health_overlay">Pill overlay connected</string>
+    <string name="health_listener">Notification access granted</string>
+    <string name="health_listener_connected">Notification listener connected</string>
+    <string name="health_battery">Battery unrestricted</string>
+    <string name="health_audio">Audio access (for the real equalizer)</string>
+    <string name="health_visualizer_live">Equalizer using real audio right now</string>
+    <string name="health_bluetooth">Bluetooth device names</string>
+    <string name="health_hint_enable_accessibility">Next step: enable the accessibility service (button 1). If it is blocked, allow restricted settings first (button 3).</string>
+    <string name="health_hint_reconnect">Next step: the service is enabled but not connected. Turn it off and on again in Accessibility settings (button 1).</string>
+    <string name="health_hint_enable_listener">Next step: enable notification access (button 2).</string>
+    <string name="health_hint_battery">Next step: set battery to Unrestricted in App info (button 3) so One UI does not stop the pill.</string>
+    <string name="health_hint_ok">All essentials are working. The equalizer shows real audio only while music plays and audio access is allowed.</string>
+</resources>
