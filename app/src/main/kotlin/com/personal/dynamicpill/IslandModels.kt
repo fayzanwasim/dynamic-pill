@@ -24,7 +24,7 @@ sealed interface Glance {
 }
 
 /** Decorations the idle pill can show when nothing else is going on. Order matches the settings slider. */
-enum class IdleWidget { NONE, EYES, CLOCK, DATE, BATTERY, GLOW, NEXT_ALARM }
+enum class IdleWidget { NONE, EYES, CLOCK, DATE, BATTERY, GLOW, NEXT_ALARM, ORBIT, CHOMP, HEARTBEAT, MOON, WEEKEND }
 
 /** Lower numbers are shown first when several live activities compete for the pill. */
 object IslandPriority {
@@ -57,6 +57,11 @@ data class IslandContent(
     val accent: Int? = null,
     /** Package that produced this content, used to ignore notifications from the app in the foreground. */
     val sourcePackage: String? = null,
+    /**
+     * What to show instead while the phone is locked (just the app, no sender or message), or null when the
+     * content is safe to show as is. Follows the notification's own lock-screen visibility.
+     */
+    val lockedVersion: IslandContent? = null,
     val onTap: (() -> Unit)? = null,
 )
 

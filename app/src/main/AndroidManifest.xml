@@ -2,15 +2,16 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Needed to resolve app icons and labels for notifications from any package. -->
-    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
-
-    <!-- Output visualizer for the music equalizer. -->
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
-
-    <!-- Names of Bluetooth devices in the "connected" event. -->
-    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <!--
+        No ordinary permissions: the app only needs the accessibility and notification-listener services below.
+        Launchable apps are visible for icons, names and the per-app rules list; nothing else is queried.
+    -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
 
     <application
         android:allowBackup="false"
@@ -35,6 +36,14 @@
         <activity
             android:name=".EventLogActivity"
             android:exported="false" />
+
+        <activity
+            android:name=".ReplyActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.DeviceDefault.Dialog"
+            android:windowSoftInputMode="stateVisible|adjustResize" />
 
         <!-- Exported so automation apps can reach it; every request must carry the in-app token. -->
         <receiver

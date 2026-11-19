@@ -1,17 +1,15 @@
 package com.personal.dynamicpill
 
-import android.Manifest
-import android.bluetooth.BluetoothDevice
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.pm.PackageManager
+import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.BatteryManager
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-/** Turns system broadcasts (volume, ringer, Bluetooth, battery) into short pill events, like iPhone's HUDs. */
+/** Turns system events (volume, ringer, headphones, battery) into short pill events, like iPhone's HUDs. */
 class SystemEvents(private val context: Context, private val settings: IslandSettings) {
 
     /** A ready-to-show event and how long it should stay. */
@@ -24,7 +22,6 @@ class SystemEvents(private val context: Context, private val settings: IslandSet
         filter.addAction(VOLUME_CHANGED_ACTION)
         filter.addAction(AudioManager.RINGER_MODE_CHANGED_ACTION)
         filter.addAction(Intent.ACTION_BATTERY_LOW)
-        filter.addAction(BluetoothDevice.ACTION_ACL_CONNECTED)
     }
 
     /** The event for [intent], or null when it is not one of ours, is switched off or carries no change. */
@@ -32,8 +29,27 @@ class SystemEvents(private val context: Context, private val settings: IslandSet
         VOLUME_CHANGED_ACTION -> volumeEvent(intent).takeIf { settings.isOn(IslandSetting.EVENT_VOLUME) }
         AudioManager.RINGER_MODE_CHANGED_ACTION -> ringerEvent(intent).takeIf { settings.isOn(IslandSetting.EVENT_RINGER) }
         Intent.ACTION_BATTERY_LOW -> lowBatteryEvent().takeIf { settings.isOn(IslandSetting.EVENT_LOW_BATTERY) }
-        BluetoothDevice.ACTION_ACL_CONNECTED -> bluetoothEvent(intent).takeIf { settings.isOn(IslandSetting.EVENT_BLUETOOTH) }
         else -> null
+    }
+
+    /**
+     * Headphones or a speaker connected, detected as a new audio output. Unlike Bluetooth broadcasts this needs
+     * no permission, and the device's own name comes with it.
+     */
+    fun outputConnectedEvent(device: AudioDeviceInfo): Event? {
+        if (device.type !in EXTERNAL_OUTPUT_TYPES || !settings.isOn(IslandSetting.EVENT_BLUETOOTH)) return null
+        val name = device.productName?.toString().orEmpty().ifBlank { context.getString(R.string.event_audio_device) }
+        val icon = if (device.type in BLUETOOTH_TYPES) android.R.drawable.stat_sys_data_bluetooth else android.R.drawable.ic_lock_silent_mode_off
+        return Event(
+            IslandContent(
+                id = AUDIO_DEVICE_ID,
+                icon = context.getDrawable(icon),
+                title = name,
+                subtitle = context.getString(R.string.event_audio_connected),
+                glance = Glance.Text(HEADPHONES_SYMBOL),
+            ),
+            AUDIO_DEVICE_HOLD_MS,
+        )
     }
 
     /** Charging with the current power draw, measured shortly after plugging in once the current has ramped up. */
@@ -105,28 +121,6 @@ class SystemEvents(private val context: Context, private val settings: IslandSet
         )
     }
 
-    private fun bluetoothEvent(intent: Intent): Event {
-        val name = bluetoothName(intent) ?: context.getString(R.string.event_bluetooth_device)
-        return Event(
-            IslandContent(
-                id = BLUETOOTH_ID,
-                icon = context.getDrawable(android.R.drawable.stat_sys_data_bluetooth),
-                title = name,
-                subtitle = context.getString(R.string.event_bluetooth_connected),
-                glance = Glance.Text(context.getString(R.string.event_bluetooth_short)),
-            ),
-            BLUETOOTH_HOLD_MS,
-        )
-    }
-
-    /** Device names need the Bluetooth "nearby devices" permission; without it the event stays generic. */
-    private fun bluetoothName(intent: Intent): String? {
-        val granted = context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
-        if (!granted) return null
-        val device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
-        return device?.name
-    }
-
     private fun batteryPercent(): Int = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
 
     /** Power going into the battery: current (µA) times voltage (mV) is nanowatts. */
@@ -142,7 +136,23 @@ class SystemEvents(private val context: Context, private val settings: IslandSet
         private const val VOLUME_ID = "system_volume"
         private const val RINGER_ID = "system_ringer"
         private const val LOW_BATTERY_ID = "system_low_battery"
-        private const val BLUETOOTH_ID = "system_bluetooth"
+        private const val AUDIO_DEVICE_ID = "system_audio_device"
+        private const val HEADPHONES_SYMBOL = "🎧"
+
+        /** Outputs that count as "headphones or a speaker", as opposed to the phone's own speaker. */
+        val EXTERNAL_OUTPUT_TYPES = setOf(
+            AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
+            AudioDeviceInfo.TYPE_BLE_HEADSET,
+            AudioDeviceInfo.TYPE_BLE_SPEAKER,
+            AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
+            AudioDeviceInfo.TYPE_WIRED_HEADSET,
+            AudioDeviceInfo.TYPE_USB_HEADSET,
+        )
+        private val BLUETOOTH_TYPES = setOf(
+            AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
+            AudioDeviceInfo.TYPE_BLE_HEADSET,
+            AudioDeviceInfo.TYPE_BLE_SPEAKER,
+        )
 
         // Not part of the public SDK constants, but broadcast by the platform on every volume change.
         private const val VOLUME_CHANGED_ACTION = "android.media.VOLUME_CHANGED_ACTION"
@@ -158,6 +168,6 @@ class SystemEvents(private val context: Context, private val settings: IslandSet
         private const val VOLUME_HOLD_MS = 1_500L
         private const val RINGER_HOLD_MS = 2_000L
         private const val LOW_BATTERY_HOLD_MS = 5_000L
-        private const val BLUETOOTH_HOLD_MS = 3_000L
+        private const val AUDIO_DEVICE_HOLD_MS = 3_000L
     }
 }

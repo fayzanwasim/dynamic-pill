@@ -12,6 +12,7 @@ import android.content.res.Configuration
 import android.graphics.PixelFormat
 import android.graphics.drawable.BitmapDrawable
 import android.hardware.display.DisplayManager
+import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.BatteryManager
@@ -26,10 +27,13 @@ import android.view.View
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.inputmethod.InputMethodManager
+import java.time.DayOfWeek
+import java.time.Duration
 import java.time.Instant
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import kotlin.math.min
+import kotlin.math.roundToInt
 
 /**
  * Hosts the pill as an accessibility overlay window positioned over the camera cutout and decides
@@ -58,10 +62,21 @@ class IslandAccessibilityService : AccessibilityService(), IslandSink {
     private val bubbleTimeoutRunnable = Runnable { clearBubble() }
     private val settingsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key -> onSettingsChanged(key) }
 
+    // Registering reports every output already connected; only additions after that are real connections.
+    private var audioDevicesReported = false
+    private val audioDeviceCallback = object : AudioDeviceCallback() {
+        override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>) {
+            if (!audioDevicesReported) {
+                audioDevicesReported = true
+                return
+            }
+            addedDevices.firstNotNullOfOrNull(systemEvents::outputConnectedEvent)?.let(::showSystemEvent)
+        }
+    }
+
     private lateinit var windowManager: WindowManager
     private lateinit var settings: IslandSettings
     private lateinit var rules: AppRules
-    private lateinit var audioMonitor: AudioLevelMonitor
     private lateinit var keyguardManager: KeyguardManager
     private lateinit var powerManager: PowerManager
     private lateinit var systemEvents: SystemEvents
@@ -91,7 +106,6 @@ class IslandAccessibilityService : AccessibilityService(), IslandSink {
         settings = IslandSettings(this)
         systemEvents = SystemEvents(this, settings)
         rules = AppRules(this)
-        audioMonitor = AudioLevelMonitor(this) { levels -> island?.setAudioLevels(levels) }
         ignoredForegroundPackages = IGNORED_FOREGROUND_PACKAGES + packageName + inputMethodPackages()
     }
 
@@ -108,6 +122,8 @@ class IslandAccessibilityService : AccessibilityService(), IslandSink {
         }
         systemEvents.addActionsTo(filter)
         registerReceiver(systemReceiver, filter, RECEIVER_NOT_EXPORTED)
+        audioDevicesReported = false
+        getSystemService(AudioManager::class.java).registerAudioDeviceCallback(audioDeviceCallback, handler)
         connected = true
         attachIsland()
         IslandBus.sink = this
@@ -119,8 +135,8 @@ class IslandAccessibilityService : AccessibilityService(), IslandSink {
             connected = false
             IslandBus.sink = null
             settings.unregisterListener(settingsListener)
-            audioMonitor.stop()
             unregisterReceiver(systemReceiver)
+            getSystemService(AudioManager::class.java).unregisterAudioDeviceCallback(audioDeviceCallback)
             detachIsland()
         }
         return super.onUnbind(intent)
@@ -183,7 +199,7 @@ class IslandAccessibilityService : AccessibilityService(), IslandSink {
         val pill = island ?: return
         bubbleCount = if (bubbleContent == null) 1 else bubbleCount + 1
         bubbleContent = content
-        bubbleHost?.show(content.icon, pill.compactWidthPx, bubbleCount)
+        bubbleHost?.show(forDisplay(content).icon, pill.compactWidthPx, bubbleCount)
         handler.removeCallbacks(bubbleTimeoutRunnable)
         handler.postDelayed(bubbleTimeoutRunnable, holdMs(content))
     }
@@ -248,7 +264,6 @@ class IslandAccessibilityService : AccessibilityService(), IslandSink {
             }
             else -> removeLive(MEDIA_ID)
         }
-        if (state?.isPlaying == true) audioMonitor.start() else audioMonitor.stop()
         render()
     }
 
@@ -325,7 +340,7 @@ class IslandAccessibilityService : AccessibilityService(), IslandSink {
     private fun outputDeviceName(): String? =
         getSystemService(AudioManager::class.java)
             .getDevices(AudioManager.GET_DEVICES_OUTPUTS)
-            .firstOrNull { it.type in EXTERNAL_OUTPUT_TYPES }
+            .firstOrNull { it.type in SystemEvents.EXTERNAL_OUTPUT_TYPES }
             ?.productName
             ?.toString()
 
@@ -347,10 +362,10 @@ class IslandAccessibilityService : AccessibilityService(), IslandSink {
         }
         handler.removeCallbacks(idleTickRunnable)
         if (transient != null) {
-            view.show(target, transientExpanded)
+            view.show(forDisplay(target), transientExpanded)
         } else {
             val secondary = ordered.firstOrNull { it.id != target.id }
-            view.show(target, liveExpanded, secondary.takeUnless { liveExpanded })
+            view.show(forDisplay(target), liveExpanded, secondary?.let(::forDisplay).takeUnless { liveExpanded })
         }
     }
 
@@ -358,7 +373,14 @@ class IslandAccessibilityService : AccessibilityService(), IslandSink {
     private fun showIdle(view: IslandView) {
         val widget = IdleWidget.entries[settings.get(IslandSetting.IDLE_WIDGET)]
         val (left, right) = idleGlances(widget)
-        view.showIdle(left, right, glow = widget == IdleWidget.GLOW)
+        val effect = when (widget) {
+            IdleWidget.GLOW -> PillEffect.GLOW
+            IdleWidget.ORBIT -> PillEffect.ORBIT
+            IdleWidget.CHOMP -> PillEffect.CHOMP
+            IdleWidget.HEARTBEAT -> PillEffect.HEARTBEAT
+            else -> PillEffect.NONE
+        }
+        view.showIdle(left, right, effect)
         handler.removeCallbacks(idleTickRunnable)
         if (widget in TICKING_WIDGETS) handler.postDelayed(idleTickRunnable, IDLE_TICK_MS)
     }
@@ -366,7 +388,10 @@ class IslandAccessibilityService : AccessibilityService(), IslandSink {
     private fun idleGlances(widget: IdleWidget): Pair<Glance, Glance> {
         val now = ZonedDateTime.now()
         return when (widget) {
-            IdleWidget.NONE, IdleWidget.GLOW -> Glance.None to Glance.None
+            IdleWidget.NONE, IdleWidget.GLOW, IdleWidget.ORBIT, IdleWidget.CHOMP, IdleWidget.HEARTBEAT ->
+                Glance.None to Glance.None
+            IdleWidget.MOON -> moonGlances(now)
+            IdleWidget.WEEKEND -> weekendGlances(now)
             IdleWidget.EYES -> Glance.Eye to Glance.Eye
             IdleWidget.CLOCK -> {
                 val pattern = if (DateFormat.is24HourFormat(this)) "H:mm" else "h:mm"
@@ -393,6 +418,30 @@ class IslandAccessibilityService : AccessibilityService(), IslandSink {
             }
         }
     }
+
+    /** Today's moon emoji and the days left until the full moon, from the mean length of a lunar cycle. */
+    private fun moonGlances(now: ZonedDateTime): Pair<Glance, Glance> {
+        val days = Duration.between(KNOWN_NEW_MOON, now.toInstant()).toMillis() / MS_PER_DAY
+        val age = ((days % SYNODIC_MONTH_DAYS) + SYNODIC_MONTH_DAYS) % SYNODIC_MONTH_DAYS
+        val phase = (age / SYNODIC_MONTH_DAYS * MOON_PHASES.size + HALF).toInt() % MOON_PHASES.size
+        val daysToFull = ((SYNODIC_MONTH_DAYS / 2 - age + SYNODIC_MONTH_DAYS) % SYNODIC_MONTH_DAYS).roundToInt()
+        val label = if (daysToFull == 0) getString(R.string.moon_full) else getString(R.string.days_short, daysToFull)
+        return Glance.Text(MOON_PHASES[phase]) to Glance.Text(label)
+    }
+
+    /** Days until Saturday, or a celebration on the weekend itself. */
+    private fun weekendGlances(now: ZonedDateTime): Pair<Glance, Glance> {
+        val today = now.dayOfWeek
+        if (today == DayOfWeek.SATURDAY || today == DayOfWeek.SUNDAY) {
+            return Glance.Text(PARTY_SYMBOL) to Glance.Text(getString(R.string.weekend_now))
+        }
+        val days = DayOfWeek.SATURDAY.value - today.value
+        return Glance.Text(BEACH_SYMBOL) to Glance.Text(getString(R.string.days_short, days))
+    }
+
+    /** While the phone is locked, private notifications show only their app; everything else is unchanged. */
+    private fun forDisplay(content: IslandContent): IslandContent =
+        if (keyguardManager.isKeyguardLocked) content.lockedVersion ?: content else content
 
     /** The pill steps aside while the screen is off (saves battery), on the lock screen if chosen, and for chosen apps. */
     private fun isSuppressed(): Boolean =
@@ -597,14 +646,6 @@ class IslandAccessibilityService : AccessibilityService(), IslandSink {
         const val MAX_CUSTOM_ACTIONS = 2
         const val SUBTITLE_SEPARATOR = " · "
         const val ALARM_SYMBOL = "⏰"
-        val EXTERNAL_OUTPUT_TYPES = setOf(
-            AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
-            AudioDeviceInfo.TYPE_BLE_HEADSET,
-            AudioDeviceInfo.TYPE_BLE_SPEAKER,
-            AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
-            AudioDeviceInfo.TYPE_WIRED_HEADSET,
-            AudioDeviceInfo.TYPE_USB_HEADSET,
-        )
         const val MS_PER_SECOND = 1_000L
         const val PREVIEW_HOLD_MS = 6_000L
         const val PAUSED_MEDIA_KEEP_MS = 5_000L
@@ -612,7 +653,23 @@ class IslandAccessibilityService : AccessibilityService(), IslandSink {
         const val IDLE_TICK_MS = 20_000L
         const val CHARGING_SYMBOL = "⚡"
         const val BATTERY_SYMBOL = "🔋"
-        val TICKING_WIDGETS = setOf(IdleWidget.CLOCK, IdleWidget.DATE, IdleWidget.BATTERY, IdleWidget.NEXT_ALARM)
+        val TICKING_WIDGETS = setOf(
+            IdleWidget.CLOCK,
+            IdleWidget.DATE,
+            IdleWidget.BATTERY,
+            IdleWidget.NEXT_ALARM,
+            IdleWidget.MOON,
+            IdleWidget.WEEKEND,
+        )
+
+        // Moon phase: a reference new moon and the mean synodic month.
+        val KNOWN_NEW_MOON: Instant = Instant.parse("2000-01-06T18:14:00Z")
+        const val SYNODIC_MONTH_DAYS = 29.530588853
+        const val MS_PER_DAY = 86_400_000.0
+        const val HALF = 0.5
+        val MOON_PHASES = listOf("🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "🌘")
+        const val PARTY_SYMBOL = "🎉"
+        const val BEACH_SYMBOL = "🏖"
 
         // Settings that change the overlay's size, position or look and therefore need it rebuilt.
         val LAYOUT_SETTING_KEYS = setOf(

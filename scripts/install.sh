@@ -11,8 +11,16 @@ cd "$(dirname "$0")/.."
 : "${JAVA_HOME:=/opt/homebrew/opt/openjdk@21}"
 export JAVA_HOME
 
-./gradlew assembleDebug testDebugUnitTest lintDebug
-adb install -r app/build/outputs/apk/debug/app-debug.apk
+# With a signing key configured, install the release build: the phone's copy is release-signed, and Android
+# refuses to replace it with a differently signed (debug) build.
+if [[ -f keystore.properties ]]; then
+  ./gradlew assembleRelease testDebugUnitTest lintDebug
+  apk=app/build/outputs/apk/release/app-release.apk
+else
+  ./gradlew assembleDebug testDebugUnitTest lintDebug
+  apk=app/build/outputs/apk/debug/app-debug.apk
+fi
+adb install -r "$apk"
 
 echo "Waiting for the accessibility service to reconnect..."
 for _ in $(seq 1 10); do

@@ -24,8 +24,6 @@ object IslandBus {
     /** Connection state, shown on the health screen. */
     var listenerConnected = false
 
-    var visualizerLive = false
-
     private var latestMedia: MediaState? = null
     private val liveActivities = LinkedHashMap<String, IslandContent>()
 

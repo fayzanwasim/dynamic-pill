@@ -7,8 +7,6 @@ import android.content.res.ColorStateList
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Outline
-import android.graphics.Paint
-import android.graphics.RectF
 import android.graphics.drawable.GradientDrawable
 import android.text.TextUtils
 import android.view.GestureDetector
@@ -154,18 +152,20 @@ class IslandView(context: Context, private val metrics: IslandMetrics) : FrameLa
     private val pressScaleXSpring = SpringAnimation(this, DynamicAnimation.SCALE_X, 1f)
     private val pressScaleYSpring = SpringAnimation(this, DynamicAnimation.SCALE_Y, 1f)
 
-    private var glowing = false
-    private val glowBounds = RectF()
-    private val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.STROKE
-        strokeWidth = context.dp(GLOW_STROKE_DP).toFloat()
-        color = metrics.accentColor
-    }
-    private val glowAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
-        duration = GLOW_PULSE_MS
+    // Idle effects (glow, orbit, chomp, heartbeat) redraw at about 30 fps while active.
+    private var effect = PillEffect.NONE
+    private val effectRenderer = PillEffectRenderer(resources.displayMetrics.density, metrics.accentColor)
+    private var lastEffectFrameAt = 0L
+    private val effectAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+        duration = EFFECT_TICK_MS
         repeatCount = ValueAnimator.INFINITE
-        repeatMode = ValueAnimator.REVERSE
-        addUpdateListener { invalidate() }
+        addUpdateListener {
+            val now = SystemClock.uptimeMillis()
+            if (now - lastEffectFrameAt >= EFFECT_FRAME_INTERVAL_MS) {
+                lastEffectFrameAt = now
+                invalidate()
+            }
+        }
     }
 
     private val swipeDistance = ViewConfiguration.get(context).scaledTouchSlop * SWIPE_SLOP_MULTIPLIER
@@ -234,7 +234,7 @@ class IslandView(context: Context, private val metrics: IslandMetrics) : FrameLa
         bind(content, secondary)
         val previous = state
         state = if (expanded) State.EXPANDED else State.COMPACT
-        setGlow(false)
+        setEffect(PillEffect.NONE)
         if (previous == State.HIDDEN) startFromResting()
         if (expanded && previous != State.EXPANDED && metrics.haptics) {
             performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
@@ -245,13 +245,15 @@ class IslandView(context: Context, private val metrics: IslandMetrics) : FrameLa
 
     /**
      * Shows the always-on resting pill: just the black pill around the camera, optionally decorated with
-     * [left] and [right] glances. It widens from here when an activity starts.
+     * [left] and [right] glances and an animated [effect]. It widens from here when an activity starts.
      */
-    fun showIdle(left: Glance, right: Glance, glow: Boolean) {
-        bindCompactGlances(left, right, metrics.gap, fixedSide = metrics.idleSide.takeIf { it > 0 })
+    fun showIdle(left: Glance, right: Glance, effect: PillEffect) {
+        // Effects drawn beside the camera need a little room even when there is no glance to size the sides.
+        val minSide = if (effect == PillEffect.NONE || effect == PillEffect.GLOW) metrics.gap else dp(EFFECT_MIN_SIDE_DP)
+        bindCompactGlances(left, right, minSide, fixedSide = metrics.idleSide.takeIf { it > 0 })
         val previous = state
         state = State.IDLE
-        setGlow(glow)
+        setEffect(effect)
         if (previous == State.HIDDEN) startFromResting()
         collapseToCompact(reveal = previous != State.IDLE)
     }
@@ -263,7 +265,7 @@ class IslandView(context: Context, private val metrics: IslandMetrics) : FrameLa
     fun hide() {
         if (state == State.HIDDEN) return
         state = State.HIDDEN
-        setGlow(false)
+        setEffect(PillEffect.NONE)
         removeCallbacks(mediaTick)
         leftGlance.bind(Glance.None)
         rightGlance.bind(Glance.None)
@@ -274,24 +276,23 @@ class IslandView(context: Context, private val metrics: IslandMetrics) : FrameLa
         morphTo(metrics.restingWidth.toFloat(), metrics.compactHeight.toFloat(), compactCorner, HIDE_SPRING, HIDE_SPRING)
     }
 
-    /** Feeds real audio levels to every equalizer; null returns them to their own animation. */
-    fun setAudioLevels(levels: FloatArray?) {
-        leftGlance.setAudioLevels(levels)
-        rightGlance.setAudioLevels(levels)
-        headerGlance.setAudioLevels(levels)
-    }
-
     override fun dispatchDraw(canvas: Canvas) {
         super.dispatchDraw(canvas)
-        if (!glowing) return
-        glowPaint.alpha = (GLOW_MIN_ALPHA + (MAX_ALPHA - GLOW_MIN_ALPHA) * glowAnimator.animatedFraction).roundToInt()
-        val inset = glowPaint.strokeWidth / 2f
-        glowBounds.set(inset, inset, width - inset, height - inset)
-        canvas.drawRoundRect(glowBounds, cornerRadius - inset, cornerRadius - inset, glowPaint)
+        if (effect == PillEffect.NONE) return
+        effectRenderer.draw(
+            effect,
+            canvas,
+            width,
+            height,
+            cornerRadius,
+            compactSideWidth,
+            metrics.cutoutWidth,
+            SystemClock.uptimeMillis(),
+        )
     }
 
     override fun onDetachedFromWindow() {
-        glowAnimator.cancel()
+        effectAnimator.cancel()
         removeCallbacks(mediaTick)
         super.onDetachedFromWindow()
     }
@@ -322,10 +323,10 @@ class IslandView(context: Context, private val metrics: IslandMetrics) : FrameLa
         label.textSize = TIME_SP
     }
 
-    private fun setGlow(enabled: Boolean) {
-        if (glowing == enabled) return
-        glowing = enabled
-        if (enabled) glowAnimator.start() else glowAnimator.cancel()
+    private fun setEffect(newEffect: PillEffect) {
+        if (effect == newEffect) return
+        effect = newEffect
+        if (newEffect == PillEffect.NONE) effectAnimator.cancel() else if (!effectAnimator.isRunning) effectAnimator.start()
         invalidate()
     }
 
@@ -679,10 +680,9 @@ class IslandView(context: Context, private val metrics: IslandMetrics) : FrameLa
         // Initial spring velocities (px/s) that make the pill swell outwards when it starts expanding.
         const val KICK_WIDTH_VELOCITY = 1400f
         const val KICK_HEIGHT_VELOCITY = 500f
-        const val GLOW_STROKE_DP = 2
-        const val GLOW_PULSE_MS = 1_400L
-        const val GLOW_MIN_ALPHA = 50
-        const val MAX_ALPHA = 255
+        const val EFFECT_TICK_MS = 1_000L
+        const val EFFECT_FRAME_INTERVAL_MS = 33L
+        const val EFFECT_MIN_SIDE_DP = 24
         const val SPEED_PERCENT = 100f
         const val BOUNCE_BASE = 1.5f
         const val BOUNCINESS_MAX = 100f

@@ -7,7 +7,6 @@
     <string name="action_accessibility">1. Enable accessibility service</string>
     <string name="action_notification_access">2. Enable notification access</string>
     <string name="action_app_info">3. App info (restricted settings, battery)</string>
-    <string name="action_audio_permission">4. Allow audio access (real equalizer)</string>
 
     <string name="section_preview">Preview</string>
     <string name="action_preview_expanded">Preview expanded</string>
@@ -55,7 +54,15 @@
         <item>Battery</item>
         <item>Glow</item>
         <item>Next alarm</item>
+        <item>Orbit</item>
+        <item>Chomp</item>
+        <item>Heartbeat</item>
+        <item>Moon phase</item>
+        <item>Weekend countdown</item>
     </string-array>
+    <string name="moon_full">Full</string>
+    <string name="days_short">%1$dd</string>
+    <string name="weekend_now">Now!</string>
     <string name="toggle_always_on">Keep the pill on when idle (expands sideways)</string>
     <string name="toggle_ignore_persistent">Ignore persistent (ongoing) notifications</string>
     <string name="toggle_only_important">Only important notifications (ignore lower priority)</string>
@@ -96,21 +103,19 @@
     <string name="event_vibrate">Vibrate</string>
     <string name="event_ring">Ring</string>
     <string name="event_low_battery">Battery low</string>
-    <string name="event_bluetooth_device">Bluetooth device</string>
-    <string name="event_bluetooth_connected">Connected</string>
-    <string name="event_bluetooth_short">BT</string>
+    <string name="event_audio_device">Audio device</string>
+    <string name="event_audio_connected">Connected</string>
 
     <string name="toggle_respect_dnd">Respect Do Not Disturb</string>
     <string name="toggle_ignore_foreground_app">Ignore notifications from the app I\'m using</string>
     <string name="toggle_haptics">Haptic tick when the pill expands</string>
     <string name="toggle_event_volume">Show volume changes</string>
     <string name="toggle_event_ringer">Show ring / vibrate / silent changes</string>
-    <string name="toggle_event_bluetooth">Show Bluetooth connections</string>
+    <string name="toggle_event_bluetooth">Show headphone and speaker connections</string>
     <string name="toggle_event_low_battery">Show low battery warning</string>
 
     <string name="vip_label">VIP names or keywords (always shown and expanded, comma separated)</string>
     <string name="vip_hint">e.g. Mom, urgent, flight</string>
-    <string name="action_bluetooth_permission">5. Allow Bluetooth device names</string>
     <string name="action_event_log">Why didn\'t it show? (event log)</string>
     <string name="action_clear_log">Clear log</string>
     <string name="log_line">%1$s · %2$s · %3$s: %4$s</string>
@@ -126,6 +131,17 @@
     <string name="automation_help" tools:ignore="TypographyDashes">Send a broadcast to com.personal.dynamicpill/.AutomationReceiver with action com.personal.dynamicpill.action.SHOW and extras: token, title, text, seconds, expand, timer_seconds, live, id. End a live one with action com.personal.dynamicpill.action.END and the same id.\n\nToken: %1$s\n\nExample:\nadb shell am broadcast -n com.personal.dynamicpill/.AutomationReceiver -a com.personal.dynamicpill.action.SHOW --es token %1$s --es title Hello --es text "From automation" --ei seconds 5</string>
     <string name="action_copy_token">Copy token</string>
     <string name="token_copied">Token copied</string>
+    <string name="action_new_token">New token (old one stops working)</string>
+    <string name="token_rotated">New token created. Update it in Tasker or other automations.</string>
+
+    <string name="locked_content_hidden">New notification</string>
+    <string name="action_reply">Reply</string>
+    <string name="action_mark_read">Mark as read</string>
+    <string name="action_send">Send</string>
+    <string name="reply_title">Reply to %1$s</string>
+    <string name="reply_hint">Message</string>
+    <string name="reply_sent">Reply sent</string>
+    <string name="reply_failed">Could not send the reply</string>
     <string name="tile_label">Pill always on</string>
 
     <string name="health_ok">✓ %1$s</string>
@@ -135,12 +151,9 @@
     <string name="health_listener">Notification access granted</string>
     <string name="health_listener_connected">Notification listener connected</string>
     <string name="health_battery">Battery unrestricted</string>
-    <string name="health_audio">Audio access (for the real equalizer)</string>
-    <string name="health_visualizer_live">Equalizer using real audio right now</string>
-    <string name="health_bluetooth">Bluetooth device names</string>
     <string name="health_hint_enable_accessibility">Next step: enable the accessibility service (button 1). If it is blocked, allow restricted settings first (button 3).</string>
     <string name="health_hint_reconnect">Next step: the service is enabled but not connected. Turn it off and on again in Accessibility settings (button 1).</string>
     <string name="health_hint_enable_listener">Next step: enable notification access (button 2).</string>
     <string name="health_hint_battery">Next step: set battery to Unrestricted in App info (button 3) so One UI does not stop the pill.</string>
-    <string name="health_hint_ok">All essentials are working. The equalizer shows real audio only while music plays and audio access is allowed.</string>
+    <string name="health_hint_ok">All essentials are working.</string>
 </resources>

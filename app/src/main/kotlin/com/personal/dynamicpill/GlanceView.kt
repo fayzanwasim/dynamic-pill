@@ -71,10 +71,6 @@ class GlanceView(
         bars.color = color
     }
 
-    fun setAudioLevels(levels: FloatArray?) {
-        bars.setLevels(levels)
-    }
-
     /** Width this glance needs, so the compact pill can grow when its content is wider than the default. */
     fun preferredWidth(): Int {
         val content = when (val current = glance) {

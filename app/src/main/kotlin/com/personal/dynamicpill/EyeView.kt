@@ -22,10 +22,19 @@ class EyeView(context: Context) : View(context) {
     private var gazeX = 0f
     private var gazeY = 0f
 
+    private var lastFrameAt = 0L
+
+    // Redraw at about 30 fps: smooth enough for the eyes, and far cheaper than the screen's full rate.
     private val ticker = ValueAnimator.ofFloat(0f, 1f).apply {
         duration = TICK_MS
         repeatCount = ValueAnimator.INFINITE
-        addUpdateListener { invalidate() }
+        addUpdateListener {
+            val now = SystemClock.uptimeMillis()
+            if (now - lastFrameAt >= FRAME_INTERVAL_MS) {
+                lastFrameAt = now
+                invalidate()
+            }
+        }
     }
 
     var active = false
@@ -89,6 +98,7 @@ class EyeView(context: Context) : View(context) {
 
     private companion object {
         const val TICK_MS = 1_000L
+        const val FRAME_INTERVAL_MS = 33L
         const val BLINK_PERIOD_MS = 4_300L
         const val BLINK_MS = 180L
         const val BLINK_MIN_OPENNESS = 0.1f

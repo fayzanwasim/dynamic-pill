@@ -79,7 +79,7 @@ class IslandNotificationListener : NotificationListenerService() {
         val photo = senderPhoto(notification)
         val base = IslandContent(
             id = sbn.key,
-            icon = photo ?: packageManager.getApplicationIcon(sbn.packageName),
+            icon = photo ?: appIcon(sbn),
             title = title.ifEmpty { app },
             subtitle = text,
             holdSeconds = rule.holdSeconds.takeIf { it > 0 },
@@ -92,7 +92,13 @@ class IslandNotificationListener : NotificationListenerService() {
 
     private fun publish(kind: NotificationKind, sbn: StatusBarNotification, base: IslandContent, expand: Boolean) {
         when (kind) {
-            NotificationKind.TRANSIENT -> IslandBus.publishNotification(base.copy(expandOnArrival = expand))
+            NotificationKind.TRANSIENT -> IslandBus.publishNotification(
+                base.copy(
+                    expandOnArrival = expand,
+                    actions = messageActions(sbn.notification, base.title),
+                    lockedVersion = lockedVersionOf(sbn, base),
+                ),
+            )
             NotificationKind.CALL -> IslandBus.publishLive(callContent(sbn, base))
             NotificationKind.ALARM -> IslandBus.publishLive(alarmContent(sbn, base))
             NotificationKind.TIMER -> IslandBus.publishLive(
@@ -102,6 +108,38 @@ class IslandNotificationListener : NotificationListenerService() {
             NotificationKind.PROGRESS -> IslandBus.publishLive(progressContent(sbn, base))
             NotificationKind.SKIP -> Unit
         }
+    }
+
+    /**
+     * On the lock screen, anything not explicitly public shows only the app: no sender photo, name or message,
+     * and no buttons. This matches what Android itself hides for private and secret notifications.
+     */
+    private fun lockedVersionOf(sbn: StatusBarNotification, base: IslandContent): IslandContent? {
+        if (sbn.notification.visibility == Notification.VISIBILITY_PUBLIC) return null
+        return base.copy(
+            icon = appIcon(sbn),
+            title = appLabel(sbn.packageName),
+            subtitle = getString(R.string.locked_content_hidden),
+            actions = emptyList(),
+            lockedVersion = null,
+        )
+    }
+
+    /** "Reply" for messages that accept a typed answer, and "Mark as read" when the app offers it. */
+    private fun messageActions(notification: Notification, sender: CharSequence): List<IslandAction> {
+        val actions = notification.actions.orEmpty()
+        val reply = actions.firstOrNull { !it.remoteInputs.isNullOrEmpty() }
+        val markRead = actions.firstOrNull { it.semanticAction == Notification.Action.SEMANTIC_ACTION_MARK_AS_READ }
+        return listOfNotNull(
+            reply?.let { action ->
+                IslandAction(label = getString(R.string.action_reply), style = ActionStyle.POSITIVE) {
+                    ReplyActivity.start(this, action, sender)
+                }
+            },
+            markRead?.let { action ->
+                IslandAction(label = getString(R.string.action_mark_read)) { action.actionIntent?.sendFromOverlay(this) }
+            },
+        )
     }
 
     private fun shouldExpand(rule: AppRule): Boolean =
@@ -212,6 +250,14 @@ class IslandNotificationListener : NotificationListenerService() {
         val base = SystemClock.elapsedRealtime() + (notification.`when` - System.currentTimeMillis())
         return Glance.Timer(base, countDown)
     }
+
+    /**
+     * Only launchable apps are visible to this app, so for anything else (system services) fall back to the
+     * notification's own small icon.
+     */
+    private fun appIcon(sbn: StatusBarNotification): Drawable? =
+        runCatching { packageManager.getApplicationIcon(sbn.packageName) }.getOrNull()
+            ?: sbn.notification.smallIcon?.loadDrawable(this)
 
     private fun appLabel(packageName: String): CharSequence =
         runCatching { packageManager.getApplicationLabel(packageManager.getApplicationInfo(packageName, 0)) }

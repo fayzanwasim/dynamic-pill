@@ -12,14 +12,14 @@ import kotlin.math.max
 import kotlin.math.sin
 
 /**
- * Animated equalizer bars. Bars follow real audio [setLevels] when provided and otherwise
- * move with a smooth procedural pattern, so the pill still feels alive without audio access.
+ * Animated equalizer bars that move with a smooth procedural pattern. They redraw at about 30 fps,
+ * which looks the same on the small pill as the screen's full rate and costs far less battery.
  */
 class EqualizerView(context: Context) : View(context) {
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
     private val levels = FloatArray(BAR_COUNT) { MIN_LEVEL }
-    private var externalLevels: FloatArray? = null
+    private var lastStepAt = 0L
 
     private val ticker = ValueAnimator.ofFloat(0f, 1f).apply {
         duration = TICK_MS
@@ -47,10 +47,6 @@ class EqualizerView(context: Context) : View(context) {
             }
         }
 
-    fun setLevels(newLevels: FloatArray?) {
-        externalLevels = newLevels
-    }
-
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         if (active && !ticker.isRunning) ticker.start()
@@ -72,10 +68,12 @@ class EqualizerView(context: Context) : View(context) {
     }
 
     private fun step() {
-        val seconds = SystemClock.uptimeMillis() / MS_PER_SECOND
-        val external = externalLevels
+        val now = SystemClock.uptimeMillis()
+        if (now - lastStepAt < FRAME_INTERVAL_MS) return
+        lastStepAt = now
+        val seconds = now / MS_PER_SECOND
         levels.indices.forEach { index ->
-            val target = external?.getOrNull(index) ?: simulatedLevel(seconds, index)
+            val target = simulatedLevel(seconds, index)
             val rate = if (target > levels[index]) ATTACK_RATE else DECAY_RATE
             levels[index] += (target - levels[index]) * rate
         }
@@ -94,6 +92,7 @@ class EqualizerView(context: Context) : View(context) {
         private const val SPEED_STEP = 0.7f
         private const val PHASE_STEP = 1.3f
         private const val TICK_MS = 1_000L
+        private const val FRAME_INTERVAL_MS = 33L
         private const val MS_PER_SECOND = 1_000f
     }
 }

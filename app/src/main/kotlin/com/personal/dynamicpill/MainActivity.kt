@@ -1,13 +1,14 @@
 package com.personal.dynamicpill
 
-import android.Manifest
 import android.app.Activity
 import android.content.ClipData
+import android.content.ClipDescription
 import android.content.ClipboardManager
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
+import android.os.PersistableBundle
 import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
@@ -63,16 +64,6 @@ class MainActivity : Activity() {
                 Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)),
             ),
         )
-        column.addView(
-            actionButton(R.string.action_audio_permission) {
-                requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), AUDIO_PERMISSION_REQUEST)
-            },
-        )
-        column.addView(
-            actionButton(R.string.action_bluetooth_permission) {
-                requestPermissions(arrayOf(Manifest.permission.BLUETOOTH_CONNECT), BLUETOOTH_PERMISSION_REQUEST)
-            },
-        )
 
         column.addView(sectionTitle(R.string.section_preview))
         column.addView(actionButton(R.string.action_preview_expanded) { preview(PreviewKind.EXPANDED) })
@@ -120,15 +111,16 @@ class MainActivity : Activity() {
         }
 
         column.addView(sectionTitle(R.string.section_automation))
-        val token = settings.apiToken()
-        column.addView(TextView(this).apply {
-            text = getString(R.string.automation_help, token)
+        val automationHelp = TextView(this).apply {
+            text = getString(R.string.automation_help, settings.apiToken())
             setTextIsSelectable(true)
-        })
+        }
+        column.addView(automationHelp)
+        column.addView(actionButton(R.string.action_copy_token) { copyToken(settings.apiToken()) })
         column.addView(
-            actionButton(R.string.action_copy_token) {
-                getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText(TOKEN_CLIP_LABEL, token))
-                Toast.makeText(this, R.string.token_copied, Toast.LENGTH_SHORT).show()
+            actionButton(R.string.action_new_token) {
+                automationHelp.text = getString(R.string.automation_help, settings.rotateApiToken())
+                Toast.makeText(this, R.string.token_rotated, Toast.LENGTH_LONG).show()
             },
         )
 
@@ -171,6 +163,15 @@ class MainActivity : Activity() {
         } catch (e: JSONException) {
             Toast.makeText(this, R.string.backup_failed, Toast.LENGTH_LONG).show()
         }
+    }
+
+    /** Copies the token marked as sensitive, so Android keeps it out of the clipboard preview. */
+    private fun copyToken(token: String) {
+        val clip = ClipData.newPlainText(TOKEN_CLIP_LABEL, token).apply {
+            description.extras = PersistableBundle().apply { putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true) }
+        }
+        getSystemService(ClipboardManager::class.java).setPrimaryClip(clip)
+        Toast.makeText(this, R.string.token_copied, Toast.LENGTH_SHORT).show()
     }
 
     private enum class PreviewKind { EXPANDED, COMPACT, MUSIC, TIMER }
@@ -328,8 +329,6 @@ class MainActivity : Activity() {
         const val PREVIEW_LIVE_ID = "preview_live"
         const val PREVIEW_MESSAGE_DELAY_MS = 1_200L
         const val PREVIEW_LIVE_DURATION_MS = 9_000L
-        const val AUDIO_PERMISSION_REQUEST = 1
-        const val BLUETOOTH_PERMISSION_REQUEST = 4
         const val TOKEN_CLIP_LABEL = "Dynamic Pill token"
         const val REQUEST_EXPORT = 2
         const val REQUEST_IMPORT = 3

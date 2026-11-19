@@ -117,9 +117,10 @@ class IslandSettings(context: Context) {
     }
 
     /** The secret that other apps must send with an automation intent; created on first use. */
-    fun apiToken(): String {
-        val existing = prefs.getString(KEY_API_TOKEN, null)
-        if (existing != null) return existing
+    fun apiToken(): String = prefs.getString(KEY_API_TOKEN, null) ?: rotateApiToken()
+
+    /** Replaces the automation token, e.g. if it leaked; anything using the old one stops working. */
+    fun rotateApiToken(): String {
         val bytes = ByteArray(TOKEN_BYTES).also { SecureRandom().nextBytes(it) }
         val token = bytes.joinToString("") { "%02x".format(it) }
         prefs.edit().putString(KEY_API_TOKEN, token).apply()

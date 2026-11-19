@@ -45,11 +45,6 @@ android {
         }
     }
 
-    lint {
-        // Personal sideloaded build: icons for notifications from any app need broad package visibility.
-        disable += "QueryAllPackagesPermission"
-    }
-
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
