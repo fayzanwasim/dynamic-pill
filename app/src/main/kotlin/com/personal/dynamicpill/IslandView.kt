@@ -279,16 +279,16 @@ class IslandView(context: Context, private val metrics: IslandMetrics) : FrameLa
     override fun dispatchDraw(canvas: Canvas) {
         super.dispatchDraw(canvas)
         if (effect == PillEffect.NONE) return
-        effectRenderer.draw(
-            effect,
-            canvas,
-            width,
-            height,
-            cornerRadius,
-            compactSideWidth,
-            metrics.cutoutWidth,
-            SystemClock.uptimeMillis(),
-        )
+        effectRenderer.frame.apply {
+            width = this@IslandView.width.toFloat()
+            height = this@IslandView.height.toFloat()
+            cornerRadius = this@IslandView.cornerRadius
+            sideWidth = compactSideWidth.toFloat()
+            cutoutWidth = metrics.cutoutWidth.toFloat()
+            edgePadding = metrics.edgePadding.toFloat()
+            now = SystemClock.uptimeMillis()
+        }
+        effectRenderer.draw(effect, canvas)
     }
 
     override fun onDetachedFromWindow() {

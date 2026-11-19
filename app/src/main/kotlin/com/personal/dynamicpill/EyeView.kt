@@ -5,6 +5,7 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.RectF
 import android.os.SystemClock
 import android.view.View
@@ -18,7 +19,17 @@ class EyeView(context: Context) : View(context) {
 
     private val whitePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
     private val pupilPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.BLACK }
+    private val squintPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+    }
+    private val squintPath = Path()
     private val eyeBounds = RectF()
+
+    /** A happy eye briefly squints into a "^" every few seconds. */
+    var happy = false
     private var gazeX = 0f
     private var gazeY = 0f
 
@@ -56,6 +67,10 @@ class EyeView(context: Context) : View(context) {
 
     override fun onDraw(canvas: Canvas) {
         val now = SystemClock.uptimeMillis()
+        if (happy && now % SQUINT_PERIOD_MS < SQUINT_MS) {
+            drawSquint(canvas)
+            return
+        }
         val openness = opennessAt(now)
         val eyeHeight = height * openness
         eyeBounds.set(0f, (height - eyeHeight) / 2f, width.toFloat(), (height + eyeHeight) / 2f)
@@ -67,6 +82,15 @@ class EyeView(context: Context) : View(context) {
         val travelX = width / 2f - pupilRadius
         val travelY = eyeHeight / 2f - pupilRadius
         canvas.drawCircle(width / 2f + gazeX * travelX, height / 2f + gazeY * travelY, pupilRadius, pupilPaint)
+    }
+
+    private fun drawSquint(canvas: Canvas) {
+        squintPaint.strokeWidth = width * SQUINT_STROKE_RATIO
+        squintPath.reset()
+        squintPath.moveTo(width * SQUINT_SIDE, height * SQUINT_LOW)
+        squintPath.lineTo(width / 2f, height * SQUINT_HIGH)
+        squintPath.lineTo(width * (1f - SQUINT_SIDE), height * SQUINT_LOW)
+        canvas.drawPath(squintPath, squintPaint)
     }
 
     /** 1 when open, dipping briefly towards [BLINK_MIN_OPENNESS] once per [BLINK_PERIOD_MS]. */
@@ -99,6 +123,12 @@ class EyeView(context: Context) : View(context) {
     private companion object {
         const val TICK_MS = 1_000L
         const val FRAME_INTERVAL_MS = 33L
+        const val SQUINT_PERIOD_MS = 5_000L
+        const val SQUINT_MS = 1_200L
+        const val SQUINT_STROKE_RATIO = 0.18f
+        const val SQUINT_SIDE = 0.15f
+        const val SQUINT_LOW = 0.62f
+        const val SQUINT_HIGH = 0.32f
         const val BLINK_PERIOD_MS = 4_300L
         const val BLINK_MS = 180L
         const val BLINK_MIN_OPENNESS = 0.1f

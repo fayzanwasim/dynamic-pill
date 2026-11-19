@@ -19,12 +19,48 @@ sealed interface Glance {
     /** Equalizer bars. */
     data object Bars : Glance
 
-    /** A cartoon eye that looks around and blinks, for the idle pill. */
-    data object Eye : Glance
+    /** A cartoon eye that looks around and blinks; a [happy] eye also squints "^" now and then. */
+    data class Eye(val happy: Boolean = false) : Glance
 }
 
-/** Decorations the idle pill can show when nothing else is going on. Order matches the settings slider. */
-enum class IdleWidget { NONE, EYES, CLOCK, DATE, BATTERY, GLOW, NEXT_ALARM, ORBIT, CHOMP, HEARTBEAT, MOON, WEEKEND }
+/**
+ * Decorations the idle pill can show when nothing else is going on. The order matches the settings slider and
+ * the stored setting, so new entries are only ever added at the end.
+ */
+enum class IdleWidget {
+    NONE,
+    EYES,
+    CLOCK,
+    DATE,
+    BATTERY,
+    GLOW,
+    NEXT_ALARM,
+    ORBIT,
+    CHOMP,
+    HEARTBEAT,
+    MOON,
+    WEEKEND,
+    SLEEPY_CAT,
+    PEEKABOO,
+    BLUSH,
+    GHOST,
+    BUNNY,
+    FIREFLIES,
+    SNOW,
+    STARS,
+    RAIN,
+    SKY,
+    BOUNCE,
+    LAVA,
+    RIPPLE,
+    PENDULUM,
+    SHIMMER,
+    RAINBOW,
+    FIREWORKS,
+    CRESCENT,
+    HOLIDAY,
+    EMOJI_OF_THE_DAY,
+}
 
 /** Lower numbers are shown first when several live activities compete for the pill. */
 object IslandPriority {

@@ -59,6 +59,26 @@
         <item>Heartbeat</item>
         <item>Moon phase</item>
         <item>Weekend countdown</item>
+        <item>Sleepy cat</item>
+        <item>Peekaboo</item>
+        <item>Blushing face</item>
+        <item>Tiny ghost</item>
+        <item>Bunny ears</item>
+        <item>Fireflies</item>
+        <item>Snowfall</item>
+        <item>Twinkling stars</item>
+        <item>Raindrop ripples</item>
+        <item>Sunrise to sunset sky</item>
+        <item>Bouncing ball</item>
+        <item>Lava lamp</item>
+        <item>Camera ripple</item>
+        <item>Pendulum</item>
+        <item>Shimmer</item>
+        <item>Rainbow outline</item>
+        <item>Fireworks</item>
+        <item>Crescent moon</item>
+        <item>Holiday auto-theme</item>
+        <item>Emoji of the day</item>
     </string-array>
     <string name="moon_full">Full</string>
     <string name="days_short">%1$dd</string>

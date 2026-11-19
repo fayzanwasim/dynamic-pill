@@ -53,6 +53,7 @@ class GlanceView(
         bars.active = newGlance is Glance.Bars
         eye.visibility = if (newGlance is Glance.Eye) VISIBLE else GONE
         eye.active = newGlance is Glance.Eye
+        eye.happy = (newGlance as? Glance.Eye)?.happy == true
 
         when (newGlance) {
             is Glance.Icon -> icon.setImageDrawable(newGlance.drawable)
@@ -62,7 +63,7 @@ class GlanceView(
                 timer.base = newGlance.baseElapsedRealtime
                 timer.start()
             }
-            Glance.Bars, Glance.Eye, Glance.None -> Unit
+            is Glance.Eye, Glance.Bars, Glance.None -> Unit
         }
         if (newGlance !is Glance.Timer) timer.stop()
     }
@@ -79,7 +80,7 @@ class GlanceView(
             is Glance.Text -> text.paint.measureText(current.text.toString()).roundToInt()
             is Glance.Timer -> timer.paint.measureText(timerSample(current)).roundToInt()
             Glance.Bars -> dp(BARS_WIDTH_DP)
-            Glance.Eye -> dp(EYE_WIDTH_DP)
+            is Glance.Eye -> dp(EYE_WIDTH_DP)
         }
         return content + edgePadding + dp(INNER_GAP_DP)
     }

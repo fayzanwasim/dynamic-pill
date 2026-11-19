@@ -1,7 +1,6 @@
 package com.personal.dynamicpill
 
 import android.accessibilityservice.AccessibilityService
-import android.app.AlarmManager
 import android.app.KeyguardManager
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -15,11 +14,9 @@ import android.hardware.display.DisplayManager
 import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
-import android.os.BatteryManager
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
-import android.text.format.DateFormat
 import android.util.Log
 import android.view.Display
 import android.view.Gravity
@@ -27,13 +24,7 @@ import android.view.View
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.inputmethod.InputMethodManager
-import java.time.DayOfWeek
-import java.time.Duration
-import java.time.Instant
-import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
 import kotlin.math.min
-import kotlin.math.roundToInt
 
 /**
  * Hosts the pill as an accessibility overlay window positioned over the camera cutout and decides
@@ -80,6 +71,7 @@ class IslandAccessibilityService : AccessibilityService(), IslandSink {
     private lateinit var keyguardManager: KeyguardManager
     private lateinit var powerManager: PowerManager
     private lateinit var systemEvents: SystemEvents
+    private lateinit var idleDecorations: IdleDecorations
     private lateinit var ignoredForegroundPackages: Set<String>
 
     private var connected = false
@@ -105,6 +97,7 @@ class IslandAccessibilityService : AccessibilityService(), IslandSink {
         powerManager = getSystemService(PowerManager::class.java)
         settings = IslandSettings(this)
         systemEvents = SystemEvents(this, settings)
+        idleDecorations = IdleDecorations(this)
         rules = AppRules(this)
         ignoredForegroundPackages = IGNORED_FOREGROUND_PACKAGES + packageName + inputMethodPackages()
     }
@@ -369,74 +362,12 @@ class IslandAccessibilityService : AccessibilityService(), IslandSink {
         }
     }
 
-    /** Shows the always-on resting pill with the chosen decoration, refreshing it while it shows the time or battery. */
+    /** Shows the always-on resting pill with the chosen decoration, refreshing it while it shows changing info. */
     private fun showIdle(view: IslandView) {
-        val widget = IdleWidget.entries[settings.get(IslandSetting.IDLE_WIDGET)]
-        val (left, right) = idleGlances(widget)
-        val effect = when (widget) {
-            IdleWidget.GLOW -> PillEffect.GLOW
-            IdleWidget.ORBIT -> PillEffect.ORBIT
-            IdleWidget.CHOMP -> PillEffect.CHOMP
-            IdleWidget.HEARTBEAT -> PillEffect.HEARTBEAT
-            else -> PillEffect.NONE
-        }
-        view.showIdle(left, right, effect)
+        val decoration = idleDecorations.forWidget(IdleWidget.entries[settings.get(IslandSetting.IDLE_WIDGET)])
+        view.showIdle(decoration.left, decoration.right, decoration.effect)
         handler.removeCallbacks(idleTickRunnable)
-        if (widget in TICKING_WIDGETS) handler.postDelayed(idleTickRunnable, IDLE_TICK_MS)
-    }
-
-    private fun idleGlances(widget: IdleWidget): Pair<Glance, Glance> {
-        val now = ZonedDateTime.now()
-        return when (widget) {
-            IdleWidget.NONE, IdleWidget.GLOW, IdleWidget.ORBIT, IdleWidget.CHOMP, IdleWidget.HEARTBEAT ->
-                Glance.None to Glance.None
-            IdleWidget.MOON -> moonGlances(now)
-            IdleWidget.WEEKEND -> weekendGlances(now)
-            IdleWidget.EYES -> Glance.Eye to Glance.Eye
-            IdleWidget.CLOCK -> {
-                val pattern = if (DateFormat.is24HourFormat(this)) "H:mm" else "h:mm"
-                Glance.Text(now.format(DateTimeFormatter.ofPattern("EEE"))) to
-                    Glance.Text(now.format(DateTimeFormatter.ofPattern(pattern)))
-            }
-            IdleWidget.DATE -> Glance.Text(now.format(DateTimeFormatter.ofPattern("MMM"))) to
-                Glance.Text(now.format(DateTimeFormatter.ofPattern("d")))
-            IdleWidget.BATTERY -> {
-                val battery = getSystemService(BatteryManager::class.java)
-                val percent = battery.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
-                Glance.Text(if (battery.isCharging) CHARGING_SYMBOL else BATTERY_SYMBOL) to
-                    Glance.Text(getString(R.string.charging_percent, percent))
-            }
-            IdleWidget.NEXT_ALARM -> {
-                val next = getSystemService(AlarmManager::class.java).nextAlarmClock
-                if (next == null) {
-                    Glance.None to Glance.None
-                } else {
-                    val pattern = if (DateFormat.is24HourFormat(this)) "H:mm" else "h:mm"
-                    val time = Instant.ofEpochMilli(next.triggerTime).atZone(now.zone)
-                    Glance.Text(ALARM_SYMBOL) to Glance.Text(time.format(DateTimeFormatter.ofPattern(pattern)))
-                }
-            }
-        }
-    }
-
-    /** Today's moon emoji and the days left until the full moon, from the mean length of a lunar cycle. */
-    private fun moonGlances(now: ZonedDateTime): Pair<Glance, Glance> {
-        val days = Duration.between(KNOWN_NEW_MOON, now.toInstant()).toMillis() / MS_PER_DAY
-        val age = ((days % SYNODIC_MONTH_DAYS) + SYNODIC_MONTH_DAYS) % SYNODIC_MONTH_DAYS
-        val phase = (age / SYNODIC_MONTH_DAYS * MOON_PHASES.size + HALF).toInt() % MOON_PHASES.size
-        val daysToFull = ((SYNODIC_MONTH_DAYS / 2 - age + SYNODIC_MONTH_DAYS) % SYNODIC_MONTH_DAYS).roundToInt()
-        val label = if (daysToFull == 0) getString(R.string.moon_full) else getString(R.string.days_short, daysToFull)
-        return Glance.Text(MOON_PHASES[phase]) to Glance.Text(label)
-    }
-
-    /** Days until Saturday, or a celebration on the weekend itself. */
-    private fun weekendGlances(now: ZonedDateTime): Pair<Glance, Glance> {
-        val today = now.dayOfWeek
-        if (today == DayOfWeek.SATURDAY || today == DayOfWeek.SUNDAY) {
-            return Glance.Text(PARTY_SYMBOL) to Glance.Text(getString(R.string.weekend_now))
-        }
-        val days = DayOfWeek.SATURDAY.value - today.value
-        return Glance.Text(BEACH_SYMBOL) to Glance.Text(getString(R.string.days_short, days))
+        if (decoration.ticking) handler.postDelayed(idleTickRunnable, IDLE_TICK_MS)
     }
 
     /** While the phone is locked, private notifications show only their app; everything else is unchanged. */
@@ -645,31 +576,11 @@ class IslandAccessibilityService : AccessibilityService(), IslandSink {
         const val MAX_PENDING = 5
         const val MAX_CUSTOM_ACTIONS = 2
         const val SUBTITLE_SEPARATOR = " · "
-        const val ALARM_SYMBOL = "⏰"
         const val MS_PER_SECOND = 1_000L
         const val PREVIEW_HOLD_MS = 6_000L
         const val PAUSED_MEDIA_KEEP_MS = 5_000L
         const val TAP_HOLD_MS = 5_000L
         const val IDLE_TICK_MS = 20_000L
-        const val CHARGING_SYMBOL = "⚡"
-        const val BATTERY_SYMBOL = "🔋"
-        val TICKING_WIDGETS = setOf(
-            IdleWidget.CLOCK,
-            IdleWidget.DATE,
-            IdleWidget.BATTERY,
-            IdleWidget.NEXT_ALARM,
-            IdleWidget.MOON,
-            IdleWidget.WEEKEND,
-        )
-
-        // Moon phase: a reference new moon and the mean synodic month.
-        val KNOWN_NEW_MOON: Instant = Instant.parse("2000-01-06T18:14:00Z")
-        const val SYNODIC_MONTH_DAYS = 29.530588853
-        const val MS_PER_DAY = 86_400_000.0
-        const val HALF = 0.5
-        val MOON_PHASES = listOf("🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "🌘")
-        const val PARTY_SYMBOL = "🎉"
-        const val BEACH_SYMBOL = "🏖"
 
         // Settings that change the overlay's size, position or look and therefore need it rebuilt.
         val LAYOUT_SETTING_KEYS = setOf(
